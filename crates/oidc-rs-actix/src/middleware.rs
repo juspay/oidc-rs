@@ -52,6 +52,10 @@ pub enum AuthMode {
 impl AuthState {
     /// Borrow the underlying exchanger, if any. Useful for cache-flush
     /// endpoints.
+    ///
+    /// # Returns
+    ///
+    /// `Some(&BasicExchanger)` when in enabled mode, `None` when disabled.
     pub fn exchanger(&self) -> Option<&BasicExchanger> {
         match &self.mode {
             AuthMode::Enabled { exchanger, .. } => Some(exchanger),
