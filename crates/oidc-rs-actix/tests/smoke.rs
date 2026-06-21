@@ -10,7 +10,9 @@ async fn disabled_mode_injects_disabled_identity() {
         HttpResponse::Ok().json(&a.0)
     }
 
-    let state = Arc::new(AuthState { mode: AuthMode::Disabled });
+    let state = Arc::new(AuthState {
+        mode: AuthMode::Disabled,
+    });
     let app = test::init_service(
         App::new().service(
             web::scope("")

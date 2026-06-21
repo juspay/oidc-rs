@@ -119,13 +119,13 @@ where
     }
 }
 
-async fn resolve_identity(
-    state: &AuthState,
-    req: &ServiceRequest,
-) -> Result<Identity, AuthError> {
+async fn resolve_identity(state: &AuthState, req: &ServiceRequest) -> Result<Identity, AuthError> {
     match &state.mode {
         AuthMode::Disabled => Ok(Identity::Disabled),
-        AuthMode::Enabled { validator, exchanger } => {
+        AuthMode::Enabled {
+            validator,
+            exchanger,
+        } => {
             let header = req
                 .headers()
                 .get("authorization")
@@ -138,8 +138,7 @@ async fn resolve_identity(
                 let decoded = base64::engine::general_purpose::STANDARD
                     .decode(b64.trim())
                     .map_err(|_| AuthError::MalformedHeader)?;
-                let s =
-                    std::str::from_utf8(&decoded).map_err(|_| AuthError::MalformedHeader)?;
+                let s = std::str::from_utf8(&decoded).map_err(|_| AuthError::MalformedHeader)?;
                 let (id, secret) = s.split_once(':').ok_or(AuthError::MalformedHeader)?;
                 let jwt = exchanger.exchange(id, secret).await?;
                 let claims = validator.validate(&jwt).await?;

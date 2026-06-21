@@ -423,8 +423,7 @@ mod tests {
 
     #[tokio::test]
     async fn negative_caches_idp_rejection() {
-        let (server, count) =
-            make_idp(serde_json::json!({"error": "invalid_client"}), 401).await;
+        let (server, count) = make_idp(serde_json::json!({"error": "invalid_client"}), 401).await;
         let exchanger = BasicExchanger::new(server.uri(), None, None, Duration::from_secs(3600))
             .await
             .unwrap();
@@ -484,8 +483,7 @@ mod tests {
 
         // A negative-cached call also goes through the exchange path on first
         // miss and must clean up its inflight entry.
-        let (bad_server, _) =
-            make_idp(serde_json::json!({"error": "invalid_client"}), 401).await;
+        let (bad_server, _) = make_idp(serde_json::json!({"error": "invalid_client"}), 401).await;
         let bad_exchanger =
             BasicExchanger::new(bad_server.uri(), None, None, Duration::from_secs(3600))
                 .await
@@ -515,10 +513,9 @@ mod tests {
             200,
         )
         .await;
-        let exchanger =
-            BasicExchanger::new(server.uri(), None, None, Duration::from_secs(60))
-                .await
-                .unwrap();
+        let exchanger = BasicExchanger::new(server.uri(), None, None, Duration::from_secs(60))
+            .await
+            .unwrap();
         exchanger.exchange("cid", "sec").await.unwrap();
 
         // The entry was inserted with an already-expired `expires_at`. Confirm

@@ -130,8 +130,8 @@ impl Validator {
         }
 
         let algorithm = derive_algorithm(&jwt_jwk)?;
-        let decoding_key = jsonwebtoken::DecodingKey::from_jwk(&jwt_jwk)
-            .map_err(|_| AuthError::BadSignature)?;
+        let decoding_key =
+            jsonwebtoken::DecodingKey::from_jwk(&jwt_jwk).map_err(|_| AuthError::BadSignature)?;
 
         let mut validation = jsonwebtoken::Validation::new(algorithm);
         validation.set_issuer(&[self.inner.issuer.as_str()]);
