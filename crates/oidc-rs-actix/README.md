@@ -20,6 +20,7 @@ oidc-rs-actix = { git = "https://github.com/juspay/oidc-rs.git" }
 Wrap your `App` (or a scope) with `AuthMiddleware`, then use the `Authenticated` extractor in handlers:
 
 ```rust
+use actix_web::HttpResponse;
 use oidc_rs::{AuthConfig, BasicExchanger, Validator};
 use oidc_rs_actix::{Authenticated, AuthMiddleware, AuthMode, AuthState};
 use std::sync::Arc;
@@ -30,25 +31,22 @@ async fn main() -> std::io::Result<()> {
         .issuer("https://idp.example.com")
         .audiences(["my-api"])
         .build()
-        .unwrap();
+        .expect("auth config");
 
-    let (validator, exchanger) = match config {
-        oidc_rs::AuthConfig::Enabled(c) => {
-            let v = Validator::new(c.issuer.clone(), c.audiences.clone(), c.jwks_refresh)
-                .await
-                .unwrap();
-            let e = BasicExchanger::new(
-                c.issuer.clone(),
-                c.basic_audience.clone(),
-                c.basic_scope.clone(),
-                c.basic_cache_ttl,
-            )
-            .await
-            .unwrap();
-            (v, e)
-        }
-        _ => unreachable!(),
+    let AuthConfig::Enabled(c) = config else {
+        panic!("auth must be enabled");
     };
+    let validator = Validator::new(c.issuer.clone(), c.audiences.clone(), c.jwks_refresh)
+        .await
+        .unwrap();
+    let exchanger = BasicExchanger::new(
+        c.issuer.clone(),
+        c.basic_audience.clone(),
+        c.basic_scope.clone(),
+        c.basic_cache_ttl,
+    )
+    .await
+    .unwrap();
 
     let state = Arc::new(AuthState {
         mode: AuthMode::Enabled { validator, exchanger },
@@ -64,8 +62,8 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-async fn whoami(auth: Authenticated) -> impl actix_web::Responder {
-    serde_json::to_value(&auth.0)
+async fn whoami(auth: Authenticated) -> HttpResponse {
+    HttpResponse::Ok().json(&auth.0)
 }
 ```
 

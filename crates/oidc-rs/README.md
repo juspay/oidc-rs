@@ -52,6 +52,7 @@ let validator = Validator::new(
 .await?; // Result<Validator, AuthError>
 
 // Validate a raw JWT — returns Claims on success
+let raw_jwt = "<jwt from Authorization header>";
 let claims = validator.validate(raw_jwt).await?; // Result<Claims, AuthError>
 
 // Force a JWKS refetch (e.g. after a key rotation)
@@ -60,7 +61,7 @@ validator.refresh_jwks().await?; // Result<(), AuthError>
 
 ## BasicExchanger
 
-`BasicExchanger` performs OIDC discovery to locate the token endpoint, then exchanges `client_id` / `client_secret` for a JWT via the `client_credentials` grant. Successful exchanges are cached until the JWT's expiry (capped by `hard_ttl`); concurrent exchanges for the same `client_id` are single-flighted; IdP rejections and transient failures are negative-cached:
+`BasicExchanger` performs OIDC discovery to locate the token endpoint, then exchanges `client_id` / `client_secret` for a JWT via the `client_credentials` grant. Successful exchanges are cached until the earlier of `expires_in - 60s` and `hard_ttl - 60s`; concurrent exchanges for the same `client_id` are single-flighted; IdP rejections and transient failures are negative-cached:
 
 ```rust
 use oidc_rs::BasicExchanger;

@@ -24,6 +24,7 @@ oidc-rs-actix = { git = "https://github.com/juspay/oidc-rs.git" }
 ## Usage
 
 ```rust
+use actix_web::HttpResponse;
 use oidc_rs::{AuthConfig, BasicExchanger, Validator};
 use oidc_rs_actix::{Authenticated, AuthMiddleware, AuthMode, AuthState};
 use std::sync::Arc;
@@ -35,30 +36,27 @@ async fn main() -> std::io::Result<()> {
         .issuer("https://your-idp.example.com")
         .audiences(["my-api"])
         .build()
-        .unwrap();
+        .expect("auth config");
 
     // Construct validator + exchanger from the enabled config
-    let (validator, exchanger) = match config {
-        oidc_rs::AuthConfig::Enabled(c) => {
-            let validator = Validator::new(
-                c.issuer.clone(),
-                c.audiences.clone(),
-                c.jwks_refresh,
-            )
-            .await
-            .unwrap();
-            let exchanger = BasicExchanger::new(
-                c.issuer.clone(),
-                c.basic_audience.clone(),
-                c.basic_scope.clone(),
-                c.basic_cache_ttl,
-            )
-            .await
-            .unwrap();
-            (validator, exchanger)
-        }
-        _ => unreachable!(),
+    let AuthConfig::Enabled(c) = config else {
+        panic!("auth must be enabled");
     };
+    let validator = Validator::new(
+        c.issuer.clone(),
+        c.audiences.clone(),
+        c.jwks_refresh,
+    )
+    .await
+    .unwrap();
+    let exchanger = BasicExchanger::new(
+        c.issuer.clone(),
+        c.basic_audience.clone(),
+        c.basic_scope.clone(),
+        c.basic_cache_ttl,
+    )
+    .await
+    .unwrap();
 
     let state = Arc::new(AuthState {
         mode: AuthMode::Enabled { validator, exchanger },
@@ -74,8 +72,8 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-async fn whoami(auth: Authenticated) -> impl actix_web::Responder {
-    serde_json::to_value(&auth.0)
+async fn whoami(auth: Authenticated) -> HttpResponse {
+    HttpResponse::Ok().json(&auth.0)
 }
 ```
 
@@ -96,7 +94,7 @@ Every request then resolves to [`Identity::Disabled`] and handlers run normally.
 
 - **JWKS cache + background refresh** — the `Validator` fetches the issuer's JWKS at construction and re-fetches on a configurable interval, so key rotations are picked up without restart.
 - **Single-flight Basic exchange** — concurrent `client_credentials` requests for the same `client_id` share a single in-flight IdP call, preventing token-endpoint thundering herds.
-- **Negative caching** — IdP rejections (4xx) are cached for 30 s and transient failures (network/5xx) for 5 s, so a broken or hostile client can't thrash the IdP.
+- **Negative caching** — IdP rejections (400/401/403) are cached for 30 s and transient failures (network/5xx) for 5 s, so a broken or hostile client can't thrash the IdP.
 - **Disabled mode** — flip auth off entirely without touching handler code; the middleware emits `Identity::Disabled` and the `Authenticated` extractor still works.
 - **Framework-agnostic core** — `Validator` and `BasicExchanger` are plain `async` types with no framework coupling. The Actix adapter is a thin layer; adapters for other frameworks can be built on the same core.
 
