@@ -3,6 +3,7 @@ name = "oidc-rs"
 description = "Lightweight OIDC Resource Server: JWT validation + Basic→JWT exchange for Rust services."
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 keywords = ["oidc", "oauth2", "jwt", "auth", "openid"]
@@ -22,3 +23,4 @@ sha2 = "0.10"
 
 [dev-dependencies]
 wiremock = "0.6"
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
