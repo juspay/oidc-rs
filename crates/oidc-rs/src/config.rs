@@ -56,11 +56,19 @@ pub struct AuthConfigBuilder {
 
 impl AuthConfigBuilder {
     /// REQUIRED — set the OIDC issuer.
+    ///
+    /// # Arguments
+    ///
+    /// * `issuer` — OIDC issuer URL used for discovery and `iss` validation.
     pub fn issuer(mut self, issuer: impl Into<String>) -> Self {
         self.issuer = Some(issuer.into());
         self
     }
     /// REQUIRED — set the list of accepted `aud` values.
+    ///
+    /// # Arguments
+    ///
+    /// * `audiences` — Accepted `aud` claim values for inbound JWTs.
     pub fn audiences<I, S>(mut self, audiences: I) -> Self
     where
         I: IntoIterator<Item = S>,
@@ -70,26 +78,55 @@ impl AuthConfigBuilder {
         self
     }
     /// Optional — set the `audience` parameter for Basic→JWT exchange.
+    ///
+    /// # Arguments
+    ///
+    /// * `audience` — `audience` parameter sent to the IdP token endpoint.
     pub fn basic_audience(mut self, audience: impl Into<String>) -> Self {
         self.basic_audience = Some(audience.into());
         self
     }
     /// Optional — set the `scope` parameter for Basic→JWT exchange.
+    ///
+    /// # Arguments
+    ///
+    /// * `scope` — Space-delimited scope string sent to the IdP token endpoint.
     pub fn basic_scope(mut self, scope: impl Into<String>) -> Self {
         self.basic_scope = Some(scope.into());
         self
     }
     /// Override the default 1-hour cache TTL cap.
+    ///
+    /// # Arguments
+    ///
+    /// * `ttl` — Hard cap on positive cache lifetime for Basic→JWT exchanges.
     pub fn basic_cache_ttl(mut self, ttl: Duration) -> Self {
         self.basic_cache_ttl = Some(ttl);
         self
     }
     /// Override the default 5-minute JWKS refresh interval.
+    ///
+    /// # Arguments
+    ///
+    /// * `interval` — Duration between background JWKS re-fetches.
     pub fn jwks_refresh(mut self, interval: Duration) -> Self {
         self.jwks_refresh = Some(interval);
         self
     }
     /// Finish and validate the builder.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(AuthConfig::Enabled(_))` if all required fields are present and
+    /// all durations are positive.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BuildError::MissingIssuer`] if `issuer` was not set,
+    /// [`BuildError::EmptyAudiences`] if `audiences` was empty or unset,
+    /// [`BuildError::NonPositiveBasicCacheTtl`] if `basic_cache_ttl` was
+    /// set to zero, or [`BuildError::NonPositiveJwksRefresh`] if
+    /// `jwks_refresh` was set to zero.
     pub fn build(self) -> Result<AuthConfig, BuildError> {
         let issuer = self.issuer.ok_or(BuildError::MissingIssuer)?;
         if self.audiences.is_empty() {
