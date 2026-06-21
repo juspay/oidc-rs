@@ -1,0 +1,24 @@
+[package]
+name = "oidc-rs"
+description = "Lightweight OIDC Resource Server: JWT validation + Basic→JWT exchange for Rust services."
+version.workspace = true
+edition.workspace = true
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+keywords = ["oidc", "oauth2", "jwt", "auth", "openid"]
+categories = ["authentication", "web-programming"]
+
+[dependencies]
+openidconnect = "4"
+jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+reqwest = { version = "0.12", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["sync", "time", "rt"] }
+tracing = "0.1"
+dashmap = "5"
+sha2 = "0.10"
+
+[dev-dependencies]
+wiremock = "0.6"
