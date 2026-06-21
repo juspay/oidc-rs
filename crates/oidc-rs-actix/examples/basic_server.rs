@@ -7,8 +7,8 @@
 //! cargo run -p oidc-rs-actix --example basic_server
 //!
 //! # enabled mode (requires a reachable OIDC issuer)
-//! TE_OIDC_ISSUER=https://your-idp.example.com \
-//! TE_OIDC_AUDIENCES=my-api \
+//! OIDC_ISSUER=https://your-idp.example.com \
+//! OIDC_AUDIENCES=my-api \
 //! cargo run -p oidc-rs-actix --example basic_server
 //! ```
 //!
@@ -59,12 +59,18 @@ async fn main() -> std::io::Result<()> {
 }
 
 /// Build the [`AuthState`] from env vars, falling back to disabled mode
-/// when `TE_OIDC_ISSUER` is unset.
+/// when `OIDC_ISSUER` is unset.
 async fn build_auth_state() -> Arc<AuthState> {
-    let issuer = std::env::var("TE_OIDC_ISSUER").ok();
-    let audiences: Vec<String> = std::env::var("TE_OIDC_AUDIENCES")
+    let issuer = std::env::var("OIDC_ISSUER").ok();
+    let audiences: Vec<String> = std::env::var("OIDC_AUDIENCES")
         .ok()
-        .map(|s| s.split(',').map(String::from).collect())
+        .map(|s| {
+            s.split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(String::from)
+                .collect()
+        })
         .unwrap_or_default();
 
     match (issuer, audiences.is_empty()) {
@@ -100,7 +106,7 @@ async fn build_auth_state() -> Arc<AuthState> {
             })
         }
         _ => {
-            eprintln!("TE_OIDC_ISSUER or TE_OIDC_AUDIENCES not set — starting in DISABLED mode");
+            eprintln!("OIDC_ISSUER or OIDC_AUDIENCES not set — starting in DISABLED mode");
             Arc::new(AuthState {
                 mode: AuthMode::Disabled,
             })
