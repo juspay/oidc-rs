@@ -12,7 +12,7 @@ test:
 
 # run clippy lints
 clippy:
-    cargo clippy -- -D warnings
+    cargo clippy --all-targets -- -D warnings
 
 # check formatting
 fmt-check:
