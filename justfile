@@ -94,3 +94,32 @@ example-bearer:
 # call /whoami with Basic credentials (library exchanges for you)
 example-basic:
     curl -sf -u m2m-client:m2m-secret http://localhost:8080/whoami | jq .
+
+# spin up Keycloak, configure clients, run the server, exercise both
+# credential paths (Bearer + Basic), then tear down — all in one shot
+demo:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    trap 'just keycloak-down' EXIT
+    just keycloak-up
+    just keycloak-setup
+    OIDC_ISSUER=http://localhost:{{KC_PORT}}/realms/{{KC_REALM}} \
+    OIDC_AUDIENCES=my-api \
+    cargo run -p oidc-rs-actix --example basic_server &
+    SERVER_PID=$!
+    # wait for the example server to bind
+    until curl -sf http://localhost:8080/whoami >/dev/null 2>&1; do
+        if ! kill -0 $$SERVER_PID 2>/dev/null; then
+            echo "example server exited unexpectedly"; exit 1
+        fi
+        sleep 1
+    done
+    echo ""
+    echo "=== Bearer (client_credentials JWT) ==="
+    just example-bearer
+    echo ""
+    echo "=== Basic (library exchanges for you) ==="
+    just example-basic
+    echo ""
+    kill $$SERVER_PID 2>/dev/null || true
+    wait $$SERVER_PID 2>/dev/null || true
