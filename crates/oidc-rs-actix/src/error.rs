@@ -15,6 +15,15 @@ use oidc_rs::AuthError;
 /// (see [`public_message`]) so we never leak issuer URLs, IdP response
 /// fragments, JWT internals, etc. into the public surface. The full
 /// internal error is logged at `warn` before returning.
+///
+/// # Arguments
+///
+/// * `err` — The [`AuthError`] to map to an HTTP response.
+///
+/// # Returns
+///
+/// An `HttpResponse` with status 401 (client errors) or 503 (IdP errors),
+/// with a JSON body containing `error.code` and `error.message`.
 pub fn to_response(err: &AuthError) -> HttpResponse {
     // Log the internal detail before responding so operators can correlate
     // 401/503s to the actual underlying cause. The public response never

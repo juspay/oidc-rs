@@ -81,6 +81,24 @@ impl BasicExchanger {
     /// `audience` and `scope`, if provided, are added to every
     /// `client_credentials` POST. `hard_ttl` caps positive cache entries even
     /// when the IdP returns a longer `expires_in`.
+    ///
+    /// # Arguments
+    ///
+    /// * `issuer` — OIDC issuer URL used for discovery.
+    /// * `audience` — Optional `audience` parameter for token requests (`None` to omit).
+    /// * `scope` — Optional `scope` parameter for token requests (`None` to omit).
+    /// * `hard_ttl` — Hard cap on positive cache lifetime, even if the IdP
+    ///   returns a longer `expires_in`.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Self)` if discovery succeeds and the token endpoint is located.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError::IdpUnreachable`] if the issuer is unreachable, and
+    /// [`AuthError::IdpMalformedResponse`] if the discovery document is
+    /// malformed or missing a `token_endpoint` field.
     pub async fn new(
         issuer: String,
         audience: Option<String>,
@@ -128,6 +146,23 @@ impl BasicExchanger {
     /// the JWT is cached until the earlier of `expires_in - 60s` and
     /// `hard_ttl - 60s`. IdP 4xx rejections are negative-cached for 30 s;
     /// transient failures (network / 5xx) for 5 s.
+    ///
+    /// # Arguments
+    ///
+    /// * `client_id` — The `client_id` to send in the token request.
+    /// * `secret` — The `client_secret` to send in the token request.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(String)` containing the JWT from the IdP's token response.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError::IdpRejected`] if the IdP returns 400/401/403
+    /// (negative-cached for 30 s), [`AuthError::IdpUnreachable`] on network
+    /// or 5xx failures (negative-cached for 5 s), and
+    /// [`AuthError::IdpMalformedResponse`] if the token response body is
+    /// not valid JSON or missing `access_token`.
     pub async fn exchange(&self, client_id: &str, secret: &str) -> Result<String, AuthError> {
         let key = CacheKey {
             client_id: client_id.to_string(),
@@ -249,6 +284,16 @@ impl BasicExchanger {
     /// long-tail too. Concurrent in-flight exchanges still hold a clone of
     /// the `Arc<Mutex<()>>`, so removing the map entry only releases the
     /// map's reference; in-flight callers complete normally.
+    ///
+    /// # Arguments
+    ///
+    /// * `client_id` — When `Some("cid")`, flushes only entries for that
+    ///   client. When `None`, flushes all entries.
+    ///
+    /// # Returns
+    ///
+    /// A tuple `(positive_evicted, negative_evicted)` with the number of
+    /// entries removed from each cache.
     pub fn flush(&self, client_id: Option<&str>) -> (usize, usize) {
         let pos_before = self.inner.positive.len();
         let neg_before = self.inner.negative.len();
@@ -270,6 +315,10 @@ impl BasicExchanger {
     /// Test-only accessor exposing the positive cache's current size. Used by
     /// the eviction regression test to assert that a stale entry is removed
     /// after a hit on the expired-entry branch in [`Self::exchange`].
+    ///
+    /// # Returns
+    ///
+    /// The number of entries currently in the positive cache.
     #[cfg(test)]
     pub fn positive_len(&self) -> usize {
         self.inner.positive.len()

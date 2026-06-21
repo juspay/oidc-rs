@@ -41,6 +41,29 @@ impl Validator {
     /// `jwks_refresh` is the interval at which the background task re-fetches
     /// the JWKS. A failed background refresh logs a warning and keeps the
     /// previously-cached JWKS until the next interval.
+    ///
+    /// # Arguments
+    ///
+    /// * `issuer` — OIDC issuer URL used for discovery and `iss` validation.
+    /// * `audiences` — Accepted `aud` claim values for inbound JWTs.
+    /// * `jwks_refresh` — Interval between background JWKS re-fetches.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Self)` if discovery and the initial JWKS fetch both succeed.
+    /// The initial JWKS fetch is best-effort: on failure a warning is logged
+    /// and construction still succeeds — the background loop will retry.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError::IdpUnreachable`] if the issuer is unreachable or
+    /// discovery fails, and [`AuthError::IdpMalformedResponse`] if the
+    /// discovery document is malformed.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called outside a Tokio runtime context — a background task
+    /// is spawned via `tokio::spawn` to refresh the JWKS periodically.
     pub async fn new(
         issuer: String,
         audiences: Vec<String>,
@@ -91,6 +114,23 @@ impl Validator {
     ///
     /// Performs signature verification against the cached JWKS plus standard
     /// `iss`/`aud`/`exp`/`nbf` checks with a 60-second leeway for clock skew.
+    ///
+    /// # Arguments
+    ///
+    /// * `raw_jwt` — The raw JWT string (e.g. from the `Authorization: Bearer` header).
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Claims)` containing the verified token's claims.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError::MalformedHeader`] if the JWT header or `kid` is
+    /// missing, [`AuthError::BadSignature`] if no matching key is found or
+    /// the signature is invalid, [`AuthError::Expired`] if the token has
+    /// expired, [`AuthError::BadAudience`] if the `aud` claim doesn't match,
+    /// [`AuthError::BadIssuer`] if the `iss` claim doesn't match, and
+    /// [`AuthError::IdpUnreachable`] if the JWKS has not been loaded yet.
     pub async fn validate(&self, raw_jwt: &str) -> Result<Claims, AuthError> {
         let jwks = self
             .inner
@@ -160,6 +200,15 @@ impl Validator {
 
     /// Force a JWKS refetch. Useful from an admin endpoint when an IdP has
     /// rotated keys and you don't want to wait for the next background tick.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if the refetch succeeded.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AuthError::IdpUnreachable`] if the JWKS endpoint is
+    /// unreachable or returns an error status.
     pub async fn refresh_jwks(&self) -> Result<(), AuthError> {
         let fresh = CoreJsonWebKeySet::fetch_async(&self.inner.jwks_url, &self.inner.http)
             .await
