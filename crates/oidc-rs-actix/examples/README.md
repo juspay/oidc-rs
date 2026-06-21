@@ -43,6 +43,14 @@ done
 Using `kcadm` (shipped inside the Keycloak container):
 
 ```sh
+# Authenticate kcadm
+docker exec keycloak /opt/keycloak/bin/kcadm.sh \
+  config credentials \
+  --server http://localhost:8080 \
+  --realm master \
+  --user admin \
+  --password admin
+
 # Create a client for the example API
 docker exec keycloak /opt/keycloak/bin/kcadm.sh \
   create clients \
@@ -52,11 +60,7 @@ docker exec keycloak /opt/keycloak/bin/kcadm.sh \
   -s publicClient=false \
   -s secret=my-api-secret \
   -s serviceAccountsEnabled=true \
-  -s directAccessGrantsEnabled=true \
-  --no-config \
-  --server http://localhost:8080 \
-  --user admin \
-  --password admin
+  -s directAccessGrantsEnabled=true
 
 # Create a client for a machine caller
 docker exec keycloak /opt/keycloak/bin/kcadm.sh \
@@ -66,11 +70,21 @@ docker exec keycloak /opt/keycloak/bin/kcadm.sh \
   -s publicClient=false \
   -s secret=m2m-secret \
   -s serviceAccountsEnabled=true \
-  -s directAccessGrantsEnabled=true \
-  --no-config \
-  --server http://localhost:8080 \
-  --user admin \
-  --password admin
+  -s directAccessGrantsEnabled=true
+
+# Add an audience mapper so m2m-client tokens include my-api in aud
+M2M_UUID=$(docker exec keycloak /opt/keycloak/bin/kcadm.sh \
+  get clients -r master --fields id,clientId \
+  | jq -r '.[] | select(.clientId=="m2m-client") | .id')
+
+docker exec keycloak /opt/keycloak/bin/kcadm.sh \
+  create clients/$M2M_UUID/protocol-mappers/models \
+  -r master \
+  -s name=audience-my-api \
+  -s protocol=openid-connect \
+  -s protocolMapper=oidc-audience-mapper \
+  -s 'config."included.client.audience"="my-api"' \
+  -s 'config."access.token.claim"="true"'
 ```
 
 ### 3. Start the example server

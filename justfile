@@ -51,21 +51,31 @@ keycloak-up:
 keycloak-setup:
     #!/usr/bin/env bash
     set -euo pipefail
-    KCADM="docker exec {{KC_NAME}} /opt/keycloak/bin/kcadm.sh --no-config --server http://localhost:8080 --user {{KC_ADMIN}} --password {{KC_PASS}}"
-    $$KCADM create clients -r {{KC_REALM}} \
+    KCADM="docker exec {{KC_NAME}} /opt/keycloak/bin/kcadm.sh"
+    $KCADM config credentials --server http://localhost:8080 --realm {{KC_REALM}} --user {{KC_ADMIN}} --password {{KC_PASS}}
+    $KCADM create clients -r {{KC_REALM}} \
         -s clientId=my-api \
         -s 'redirectUris=["http://localhost:8080/callback"]' \
         -s publicClient=false \
         -s secret=my-api-secret \
         -s serviceAccountsEnabled=true \
         -s directAccessGrantsEnabled=true
-    $$KCADM create clients -r {{KC_REALM}} \
+    $KCADM create clients -r {{KC_REALM}} \
         -s clientId=m2m-client \
         -s publicClient=false \
         -s secret=m2m-secret \
         -s serviceAccountsEnabled=true \
         -s directAccessGrantsEnabled=true
-    echo "Clients created: my-api, m2m-client"
+    # Add an audience mapper so m2m-client tokens include my-api in aud
+    M2M_UUID=$($KCADM get clients -r {{KC_REALM}} --fields id,clientId \
+        | jq -r '.[] | select(.clientId=="m2m-client") | .id')
+    $KCADM create clients/$M2M_UUID/protocol-mappers/models -r {{KC_REALM}} \
+        -s name=audience-my-api \
+        -s protocol=openid-connect \
+        -s protocolMapper=oidc-audience-mapper \
+        -s 'config."included.client.audience"="my-api"' \
+        -s 'config."access.token.claim"="true"'
+    echo "Clients created: my-api, m2m-client (with audience mapper)"
 
 # stop and remove the Keycloak container
 keycloak-down:
@@ -85,11 +95,11 @@ example-disabled:
 example-bearer:
     #!/usr/bin/env bash
     set -euo pipefail
-    JWT=$$(curl -sf http://localhost:{{KC_PORT}}/realms/{{KC_REALM}}/protocol/openid-connect/token \
+    JWT=$(curl -sf http://localhost:{{KC_PORT}}/realms/{{KC_REALM}}/protocol/openid-connect/token \
         -d grant_type=client_credentials \
         -d client_id=m2m-client \
         -d client_secret=m2m-secret | jq -r .access_token)
-    curl -sf -H "Authorization: Bearer $$JWT" http://localhost:8080/whoami | jq .
+    curl -sf -H "Authorization: Bearer $JWT" http://localhost:8080/whoami | jq .
 
 # call /whoami with Basic credentials (library exchanges for you)
 example-basic:
@@ -107,9 +117,9 @@ demo:
     OIDC_AUDIENCES=my-api \
     cargo run -p oidc-rs-actix --example basic_server &
     SERVER_PID=$!
-    # wait for the example server to bind
-    until curl -sf http://localhost:8080/whoami >/dev/null 2>&1; do
-        if ! kill -0 $$SERVER_PID 2>/dev/null; then
+    # wait for the example server to bind — a 401 means it's up
+    until curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/whoami 2>/dev/null | grep -qE '^[0-9]'; do
+        if ! kill -0 $SERVER_PID 2>/dev/null; then
             echo "example server exited unexpectedly"; exit 1
         fi
         sleep 1
@@ -121,5 +131,5 @@ demo:
     echo "=== Basic (library exchanges for you) ==="
     just example-basic
     echo ""
-    kill $$SERVER_PID 2>/dev/null || true
-    wait $$SERVER_PID 2>/dev/null || true
+    kill $SERVER_PID 2>/dev/null || true
+    wait $SERVER_PID 2>/dev/null || true
