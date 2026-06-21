@@ -99,11 +99,12 @@ example-bearer:
         -d grant_type=client_credentials \
         -d client_id=m2m-client \
         -d client_secret=m2m-secret | jq -r .access_token)
-    curl -sf -H "Authorization: Bearer $JWT" http://localhost:8080/whoami | jq .
+    echo "> curl -H \"Authorization: Bearer <jwt>\" http://localhost:8080/whoami"
+    curl -s -H "Authorization: Bearer $JWT" http://localhost:8080/whoami | jq .
 
 # call /whoami with Basic credentials (library exchanges for you)
 example-basic:
-    curl -sf -u m2m-client:m2m-secret http://localhost:8080/whoami | jq .
+    curl -s -u m2m-client:m2m-secret http://localhost:8080/whoami | jq .
 
 # spin up Keycloak, configure clients, run the server, exercise both
 # credential paths (Bearer + Basic), then tear down — all in one shot
