@@ -10,7 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `oidc-rs` crate: framework-agnostic OIDC Resource Server core with `Validator`, `BasicExchanger`, and `AuthConfig` builder.
+- `oidc-rs` crate: `resolve_identity` function and `AuthState`/`AuthMode` types (extracted from actix adapter).
 - `oidc-rs-actix` crate: Actix-Web adapter with `AuthMiddleware` and `Authenticated` extractor.
+- `oidc-rs-axum` crate: Axum adapter with `auth_middleware` and `Authenticated` extractor.
 - `basic_server` example with Keycloak Docker quickstart guide.
 - CI workflow running `fmt-check`, `clippy`, and `test` on every PR.
 - Dual MIT / Apache-2.0 licensing.

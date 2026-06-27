@@ -91,6 +91,18 @@ example:
 example-disabled:
     cargo run -p oidc-rs-actix --example basic_server
 
+# --- Axum example server (crates/oidc-rs-axum/examples/basic_server.rs) ---
+
+# run the axum example server in enabled mode against local Keycloak
+example-axum:
+    OIDC_ISSUER=http://localhost:{{KC_PORT}}/realms/{{KC_REALM}} \
+    OIDC_AUDIENCES=my-api \
+    cargo run -p oidc-rs-axum --example basic_server
+
+# run the axum example server in disabled mode (no IdP required)
+example-axum-disabled:
+    cargo run -p oidc-rs-axum --example basic_server
+
 # call /whoami with a machine token from Keycloak (Bearer)
 example-bearer:
     #!/usr/bin/env bash
