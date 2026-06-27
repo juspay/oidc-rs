@@ -1708,7 +1708,6 @@ name = "oidc-rs-actix"
 version = "0.1.0"
 dependencies = [
  "actix-web",
- "base64 0.22.1",
  "oidc-rs",
  "serde",
  "serde_json",
