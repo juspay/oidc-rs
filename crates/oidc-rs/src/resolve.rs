@@ -58,13 +58,11 @@ pub async fn resolve_identity(
 /// (no space) and `"" / "Bearer"` (too short) do not.
 fn strip_scheme_prefix<'a>(header: &'a str, scheme: &str) -> Option<&'a str> {
     let prefix_len = scheme.len();
-    if header.len() <= prefix_len {
+    let prefix = header.get(..prefix_len)?;
+    if !prefix.eq_ignore_ascii_case(scheme) {
         return None;
     }
-    if !header[..prefix_len].eq_ignore_ascii_case(scheme) {
-        return None;
-    }
-    let rest = &header[prefix_len..];
+    let rest = header.get(prefix_len..)?;
     if !rest.starts_with(' ') {
         return None;
     }
@@ -100,5 +98,13 @@ mod tests {
     #[test]
     fn strip_scheme_prefix_trims_leading_whitespace_after_scheme() {
         assert_eq!(strip_scheme_prefix("Bearer    abc", "Bearer"), Some("abc"));
+    }
+
+    #[test]
+    fn strip_scheme_prefix_handles_non_ascii_without_panic() {
+        // Multi-byte UTF-8 character straddling the prefix boundary — the old
+        // byte-slicing (header[..prefix_len]) would panic here; .get() returns
+        // None so the caller maps to MalformedHeader instead of crashing.
+        assert_eq!(strip_scheme_prefix("Beare\u{0301}r abc", "Bearer"), None);
     }
 }

@@ -1,7 +1,7 @@
 //! Axum adapter for [`oidc-rs`](https://docs.rs/oidc-rs).
 //!
 //! Provides an [`auth_middleware`] function that authenticates inbound
-//! requests against the configured [`oidc_rs::AuthConfig`] (Bearer JWT
+//! requests against the [`oidc_rs::AuthState`] (Bearer JWT
 //! validation + Basic→JWT exchange) and injects an [`oidc_rs::Identity`]
 //! into request extensions. The [`Authenticated`] extractor reads that
 //! identity in handlers.

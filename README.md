@@ -14,7 +14,7 @@ This workspace contains three crates:
 
 ## Installation
 
-Both crates are pre-1.0 and not yet published to crates.io. Use a git dependency:
+These crates are pre-1.0 and not yet published to crates.io. Use a git dependency:
 
 ```toml
 [dependencies]
