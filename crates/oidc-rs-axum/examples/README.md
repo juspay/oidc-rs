@@ -7,7 +7,7 @@ A minimal Axum server showing how to wire `oidc-rs-axum` middleware, extractors,
 No IdP required — all requests pass through with `Identity::Disabled`.
 
 ```sh
-cargo run -p oidc-rs-axum --example basic_server
+just example-axum-disabled
 ```
 
 ```sh
@@ -17,82 +17,31 @@ curl http://localhost:8080/whoami
 
 ## Run in enabled mode with Keycloak
 
+The fastest way is the one-shot demo, which starts Keycloak, configures
+clients, runs the server, exercises both credential paths, and tears down:
+
+```sh
+just demo-axum
+```
+
+To run the steps individually:
+
 ### 1. Start Keycloak
 
 ```sh
-docker run -d \
-  --name keycloak \
-  -p 8484:8080 \
-  -e KEYCLOAK_ADMIN=admin \
-  -e KEYCLOAK_ADMIN_PASSWORD=admin \
-  quay.io/keycloak/keycloak:26.0 \
-  start-dev \
-  --http-port=8080
+just keycloak-up
 ```
 
-Wait for Keycloak to be ready (usually 10–15 seconds):
+### 2. Configure clients and audience
 
 ```sh
-until curl -sf http://localhost:8484/realms/master/.well-known/openid-configuration >/dev/null; do
-  echo "waiting for Keycloak..."; sleep 2
-done
-```
-
-### 2. Configure a client and audience
-
-Using `kcadm` (shipped inside the Keycloak container):
-
-```sh
-# Authenticate kcadm
-docker exec keycloak /opt/keycloak/bin/kcadm.sh \
-  config credentials \
-  --server http://localhost:8080 \
-  --realm master \
-  --user admin \
-  --password admin
-
-# Create a client for the example API
-docker exec keycloak /opt/keycloak/bin/kcadm.sh \
-  create clients \
-  -r master \
-  -s clientId=my-api \
-  -s "redirectUris=[\"http://localhost:8080/callback\"]" \
-  -s publicClient=false \
-  -s secret=my-api-secret \
-  -s serviceAccountsEnabled=true \
-  -s directAccessGrantsEnabled=true
-
-# Create a client for a machine caller
-docker exec keycloak /opt/keycloak/bin/kcadm.sh \
-  create clients \
-  -r master \
-  -s clientId=m2m-client \
-  -s publicClient=false \
-  -s secret=m2m-secret \
-  -s serviceAccountsEnabled=true \
-  -s directAccessGrantsEnabled=true
-
-# Add an audience mapper so m2m-client tokens include my-api in aud
-M2M_UUID=$(docker exec keycloak /opt/keycloak/bin/kcadm.sh \
-  get clients -r master --fields id,clientId \
-  | jq -r '.[] | select(.clientId=="m2m-client") | .id')
-
-docker exec keycloak /opt/keycloak/bin/kcadm.sh \
-  create clients/$M2M_UUID/protocol-mappers/models \
-  -r master \
-  -s name=audience-my-api \
-  -s protocol=openid-connect \
-  -s protocolMapper=oidc-audience-mapper \
-  -s 'config."included.client.audience"="my-api"' \
-  -s 'config."access.token.claim"="true"'
+just keycloak-setup
 ```
 
 ### 3. Start the example server
 
 ```sh
-OIDC_ISSUER=http://localhost:8484/realms/master \
-OIDC_AUDIENCES=my-api \
-cargo run -p oidc-rs-axum --example basic_server
+just example-axum
 ```
 
 ### 4. Test it
@@ -100,21 +49,13 @@ cargo run -p oidc-rs-axum --example basic_server
 **Bearer (machine-to-machine via client_credentials):**
 
 ```sh
-# Exchange client credentials for a JWT
-JWT=$(curl -sf http://localhost:8484/realms/master/protocol/openid-connect/token \
-  -d grant_type=client_credentials \
-  -d client_id=m2m-client \
-  -d client_secret=m2m-secret \
-  | jq -r .access_token)
-
-# Call the protected endpoint
-curl -sf -H "Authorization: Bearer $JWT" http://localhost:8080/whoami
+just example-bearer
 ```
 
 **Basic (the library exchanges for you):**
 
 ```sh
-curl -sf -u m2m-client:m2m-secret http://localhost:8080/whoami
+just example-basic
 ```
 
 **Missing/invalid credentials:**
@@ -135,5 +76,5 @@ curl -i http://localhost:8080/whoami
 ## Cleanup
 
 ```sh
-docker rm -f keycloak
+just keycloak-down
 ```
