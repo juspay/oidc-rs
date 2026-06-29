@@ -8,7 +8,7 @@ This workspace contains three crates:
 
 | Crate | Description |
 |-------|-------------|
-| [`oidc-rs`](crates/oidc-rs) | Framework-agnostic core: config builder, JWT `Validator`, and `BasicExchanger`. |
+| [`oidc-rs`](crates/oidc-rs) | Framework-agnostic core: config builder, JWT `Validator`, `BasicExchanger`, `resolve_identity`, and `AuthState`/`AuthMode` shared types. |
 | [`oidc-rs-actix`](crates/oidc-rs-actix) | Actix-Web adapter: `AuthMiddleware` + `Authenticated` extractor. Depends on `oidc-rs`. |
 | [`oidc-rs-axum`](crates/oidc-rs-axum) | Axum adapter: `auth_middleware` + `Authenticated` extractor. Depends on `oidc-rs`. |
 

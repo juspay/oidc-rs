@@ -2,7 +2,9 @@
 
 Framework-agnostic OIDC Resource Server core for Rust services. Validates inbound JWTs against an OIDC issuer's JWKS, and exchanges `Authorization: Basic` credentials for JWTs via the IdP's `client_credentials` grant — cached, single-flighted, and negative-cached.
 
-This crate has no framework coupling. For Actix-Web users, see [`oidc-rs-actix`](../oidc-rs-actix/README.md).
+This crate has no framework coupling. Framework adapters:
+- [Actix-Web](../oidc-rs-actix/README.md) — `AuthMiddleware` + `Authenticated` extractor
+- [Axum](../oidc-rs-axum/README.md) — `auth_middleware` + `Authenticated` extractor
 
 ## Status
 
@@ -81,6 +83,51 @@ let jwt = exchanger.exchange("client-id", "secret").await?; // Result<String, Au
 // Flush cache entries — pass None to flush all
 let (positive_evicted, negative_evicted) = exchanger.flush(None);
 ```
+
+## AuthState and AuthMode
+
+`AuthState` and `AuthMode` are the shared types that framework adapters build on. `AuthMode` is a discriminant — `Disabled` (bypass all auth) or `Enabled { validator, exchanger }` — and `AuthState` is a thin wrapper holding the mode:
+
+```rust
+use oidc_rs::{AuthMode, AuthState, Validator, BasicExchanger};
+use std::sync::Arc;
+
+// Enabled — adapters call resolve_identity with these
+let state = Arc::new(AuthState {
+    mode: AuthMode::Enabled { validator, exchanger },
+});
+
+// Disabled — adapters short-circuit to Identity::Disabled
+let state = Arc::new(AuthState { mode: AuthMode::Disabled });
+```
+
+Adapters match on `state.mode`: in `Disabled` they inject `Identity::Disabled` directly; in `Enabled` they extract the `Authorization` header and call [`resolve_identity`](#resolve_identity).
+
+## resolve_identity
+
+`resolve_identity` is the framework-agnostic function that all adapters delegate to. Given a raw `Authorization` header value (or `None`), it validates a Bearer JWT or exchanges Basic credentials, returning an `Identity`:
+
+```rust
+use oidc_rs::{resolve_identity, AuthError, Identity};
+
+// header: Option<&str> — the raw Authorization header value
+let identity: Result<Identity, AuthError> =
+    resolve_identity(header, &validator, &exchanger).await;
+```
+
+On success you get `Identity::Bearer(claims)`, `Identity::Basic(claims)`, or (in disabled mode, handled by the adapter) `Identity::Disabled`. On failure you get an `AuthError` that the adapter maps to an HTTP response (401 for client errors, 503 + `Retry-After` for IdP errors).
+
+## Building a new adapter
+
+To add support for a new framework, you need three pieces:
+
+1. **Middleware** — extract the `Authorization` header from the request, match on `AuthMode`, and either inject `Identity::Disabled` (disabled mode) or call `resolve_identity(header, &validator, &exchanger).await` (enabled mode). On `Ok`, insert the `Identity` into request extensions; on `Err`, map the `AuthError` to an HTTP response.
+
+2. **Extractor** — a newtype wrapping `Identity` that implements the framework's request-extraction trait, reading `Identity` from request extensions.
+
+3. **Error mapping** — convert `AuthError` to the framework's response type: 401 for client-side failures (missing/malformed header, expired token, bad signature/issuer/audience, rejected credentials), 503 with `Retry-After: 5` for IdP failures (`IdpUnreachable`, `IdpMalformedResponse`). Use stable, code-specific public messages and never leak issuer URLs, IdP response fragments, or JWT internals — log the full error at `warn` before returning.
+
+See the [`oidc-rs-actix`](../oidc-rs-actix) and [`oidc-rs-axum`](../oidc-rs-axum) crates for reference implementations.
 
 ## License
 
