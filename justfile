@@ -25,7 +25,7 @@ fmt:
 # run all checks (fmt + clippy + test)
 check: fmt-check clippy test
 
-# --- Example server (crates/oidc-rs-actix/examples/basic_server.rs) ---
+# --- Keycloak (shared between actix and axum examples) ---
 
 KC_IMAGE := "quay.io/keycloak/keycloak:26.0"
 KC_NAME  := "oidc-rs-keycloak"
@@ -81,15 +81,31 @@ keycloak-setup:
 keycloak-down:
     -docker rm -f {{KC_NAME}}
 
-# run the example server in enabled mode against local Keycloak
-example:
+# --- Actix example server (crates/oidc-rs-actix/examples/basic_server.rs) ---
+
+# run the actix example server in enabled mode against local Keycloak
+example-actix:
     OIDC_ISSUER=http://localhost:{{KC_PORT}}/realms/{{KC_REALM}} \
     OIDC_AUDIENCES=my-api \
     cargo run -p oidc-rs-actix --example basic_server
 
-# run the example server in disabled mode (no IdP required)
-example-disabled:
+# run the actix example server in disabled mode (no IdP required)
+example-actix-disabled:
     cargo run -p oidc-rs-actix --example basic_server
+
+# --- Axum example server (crates/oidc-rs-axum/examples/basic_server.rs) ---
+
+# run the axum example server in enabled mode against local Keycloak
+example-axum:
+    OIDC_ISSUER=http://localhost:{{KC_PORT}}/realms/{{KC_REALM}} \
+    OIDC_AUDIENCES=my-api \
+    cargo run -p oidc-rs-axum --example basic_server
+
+# run the axum example server in disabled mode (no IdP required)
+example-axum-disabled:
+    cargo run -p oidc-rs-axum --example basic_server
+
+# --- Shared curl helpers (work with whichever example server is running) ---
 
 # call /whoami with a machine token from Keycloak (Bearer)
 example-bearer:
@@ -106,9 +122,9 @@ example-bearer:
 example-basic:
     curl -s -u m2m-client:m2m-secret http://localhost:8080/whoami | jq .
 
-# spin up Keycloak, configure clients, run the server, exercise both
+# spin up Keycloak, configure clients, run the actix server, exercise both
 # credential paths (Bearer + Basic), then tear down — all in one shot
-demo:
+demo-actix:
     #!/usr/bin/env bash
     set -euo pipefail
     trap 'just keycloak-down' EXIT
@@ -117,6 +133,35 @@ demo:
     OIDC_ISSUER=http://localhost:{{KC_PORT}}/realms/{{KC_REALM}} \
     OIDC_AUDIENCES=my-api \
     cargo run -p oidc-rs-actix --example basic_server &
+    SERVER_PID=$!
+    # wait for the example server to bind — a 401 means it's up
+    until curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/whoami 2>/dev/null | grep -qE '^[0-9]'; do
+        if ! kill -0 $SERVER_PID 2>/dev/null; then
+            echo "example server exited unexpectedly"; exit 1
+        fi
+        sleep 1
+    done
+    echo ""
+    echo "=== Bearer (client_credentials JWT) ==="
+    just example-bearer
+    echo ""
+    echo "=== Basic (library exchanges for you) ==="
+    just example-basic
+    echo ""
+    kill $SERVER_PID 2>/dev/null || true
+    wait $SERVER_PID 2>/dev/null || true
+
+# spin up Keycloak, configure clients, run the axum server, exercise both
+# credential paths (Bearer + Basic), then tear down — all in one shot
+demo-axum:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    trap 'just keycloak-down' EXIT
+    just keycloak-up
+    just keycloak-setup
+    OIDC_ISSUER=http://localhost:{{KC_PORT}}/realms/{{KC_REALM}} \
+    OIDC_AUDIENCES=my-api \
+    cargo run -p oidc-rs-axum --example basic_server &
     SERVER_PID=$!
     # wait for the example server to bind — a 401 means it's up
     until curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/whoami 2>/dev/null | grep -qE '^[0-9]'; do

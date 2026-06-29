@@ -4,21 +4,23 @@ Lightweight OIDC Resource Server primitives for Rust services. Validates inbound
 
 ## Crate structure
 
-This workspace contains two crates:
+This workspace contains three crates:
 
 | Crate | Description |
 |-------|-------------|
-| [`oidc-rs`](crates/oidc-rs) | Framework-agnostic core: config builder, JWT `Validator`, and `BasicExchanger`. |
+| [`oidc-rs`](crates/oidc-rs) | Framework-agnostic core: config builder, JWT `Validator`, `BasicExchanger`, `resolve_identity`, and `AuthState`/`AuthMode` shared types. |
 | [`oidc-rs-actix`](crates/oidc-rs-actix) | Actix-Web adapter: `AuthMiddleware` + `Authenticated` extractor. Depends on `oidc-rs`. |
+| [`oidc-rs-axum`](crates/oidc-rs-axum) | Axum adapter: `auth_middleware` + `Authenticated` extractor. Depends on `oidc-rs`. |
 
 ## Installation
 
-Both crates are pre-1.0 and not yet published to crates.io. Use a git dependency:
+These crates are pre-1.0 and not yet published to crates.io. Use a git dependency:
 
 ```toml
 [dependencies]
 oidc-rs = { git = "https://github.com/juspay/oidc-rs.git" }
 oidc-rs-actix = { git = "https://github.com/juspay/oidc-rs.git" }
+oidc-rs-axum = { git = "https://github.com/juspay/oidc-rs.git" }
 ```
 
 ## Usage
@@ -96,7 +98,7 @@ Every request then resolves to [`Identity::Disabled`] and handlers run normally.
 - **Single-flight Basic exchange** — concurrent `client_credentials` requests for the same `client_id` share a single in-flight IdP call, preventing token-endpoint thundering herds.
 - **Negative caching** — IdP rejections (400/401/403) are cached for 30 s and transient failures (network/5xx) for 5 s, so a broken or hostile client can't thrash the IdP.
 - **Disabled mode** — flip auth off entirely without touching handler code; the middleware emits `Identity::Disabled` and the `Authenticated` extractor still works.
-- **Framework-agnostic core** — `Validator` and `BasicExchanger` are plain `async` types with no framework coupling. The Actix adapter is a thin layer; adapters for other frameworks can be built on the same core.
+- **Framework-agnostic core** — `Validator` and `BasicExchanger` are plain `async` types with no framework coupling. The Actix and Axum adapters are thin layers; adapters for other frameworks can be built on the same core.
 
 ## License
 

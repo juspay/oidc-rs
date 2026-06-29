@@ -14,4 +14,5 @@ mod middleware;
 
 pub use error::to_response as auth_error_to_response;
 pub use extractor::Authenticated;
-pub use middleware::{AuthMiddleware, AuthMode, AuthState};
+pub use middleware::AuthMiddleware;
+pub use oidc_rs::{AuthMode, AuthState};

@@ -1,13 +1,13 @@
 # basic_server example
 
-A minimal Actix-Web server showing how to wire `oidc-rs-actix` middleware, extractors, and error handling.
+A minimal Axum server showing how to wire `oidc-rs-axum` middleware, extractors, and error handling.
 
 ## Run in disabled mode
 
 No IdP required — all requests pass through with `Identity::Disabled`.
 
 ```sh
-just example-actix-disabled
+just example-axum-disabled
 ```
 
 ```sh
@@ -21,7 +21,7 @@ The fastest way is the one-shot demo, which starts Keycloak, configures
 clients, runs the server, exercises both credential paths, and tears down:
 
 ```sh
-just demo-actix
+just demo-axum
 ```
 
 To run the steps individually:
@@ -41,7 +41,7 @@ just keycloak-setup
 ### 3. Start the example server
 
 ```sh
-just example-actix
+just example-axum
 ```
 
 ### 4. Test it
